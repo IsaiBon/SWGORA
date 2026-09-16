@@ -76,6 +76,17 @@ SWGORA/
 - **Seguridad**: RLS habilitado con política para roles `anon` y `authenticated`.
 - **Índices**: `idx_clientes_nombre`, `idx_clientes_taller`.
 
+### Tabla `public.perfiles`
+- `id`: `UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE`
+- `nombre`: `TEXT NOT NULL`
+- `email`: `TEXT NOT NULL`
+- `rol`: `TEXT NOT NULL DEFAULT 'operador'` (roles soportados: `admin`, `supervisor`, `tecnico`, `operador`, `cliente`)
+- `avatar_url`: `TEXT` (nullable)
+- `created_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
+- `updated_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
+- **Seguridad**: RLS habilitado con políticas de lectura a usuarios autenticados e inserción/actualización de perfil propio.
+- **Trigger**: `on_auth_user_created` en `auth.users` que crea automáticamente el registro en `perfiles`.
+
 ---
 
 ## 5. Convenciones y Reglas de Desarrollo
