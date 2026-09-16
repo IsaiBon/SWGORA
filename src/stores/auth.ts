@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '@/services/authService'
+import { perfilesService } from '@/services/perfilesService'
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js'
 
 export interface User {
@@ -30,17 +31,42 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function syncUserWithProfile(sbUser: SupabaseUser | null) {
+    if (!sbUser) {
+      user.value = null
+      return
+    }
+
+    try {
+      const perfil = await perfilesService.getPerfilById(sbUser.id)
+      if (perfil) {
+        user.value = {
+          id: perfil.id,
+          name: perfil.nombre,
+          email: perfil.email,
+          role: perfil.rol,
+          avatar: perfil.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80',
+        }
+        return
+      }
+    } catch {
+      // Si la tabla perfiles aún no está migrada en la instancia remota, usar fallback de auth.users
+    }
+
+    user.value = mapSupabaseUser(sbUser)
+  }
+
   async function init() {
     if (isInitialized.value) return
     loading.value = true
     try {
       const currentSession = await authService.getSession()
       session.value = currentSession
-      user.value = currentSession?.user ? mapSupabaseUser(currentSession.user) : null
+      await syncUserWithProfile(currentSession?.user || null)
 
-      authService.onAuthStateChange((_event, newSession) => {
+      authService.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
-        user.value = newSession?.user ? mapSupabaseUser(newSession.user) : null
+        await syncUserWithProfile(newSession?.user || null)
       })
     } catch (err) {
       console.error('[AuthStore] Error inicializando sesión:', err)
@@ -55,7 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const data = await authService.signIn(email, password)
       session.value = data.session
-      user.value = data.user ? mapSupabaseUser(data.user) : null
+      await syncUserWithProfile(data.user)
     } finally {
       loading.value = false
     }
@@ -67,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
       const data = await authService.signUp(email, password, name)
       if (data.session) {
         session.value = data.session
-        user.value = data.user ? mapSupabaseUser(data.user) : null
+        await syncUserWithProfile(data.user)
       }
     } finally {
       loading.value = false
