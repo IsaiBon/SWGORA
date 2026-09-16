@@ -1,25 +1,19 @@
 <script setup lang="ts">
-import { Layers } from 'lucide-vue-next'
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
-      <div class="mx-auto w-12 h-12 rounded-2xl bg-indigo-500 flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 mb-4">
-        <Layers class="w-7 h-7" />
-      </div>
-      <h2 class="text-2xl font-extrabold tracking-tight text-white">
-        SWGORA
-      </h2>
-      <p class="mt-2 text-sm text-indigo-200">
-        Plataforma Integral de Gestión y Control
-      </p>
-    </div>
+  <div class="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 bg-neutral-900 overflow-x-hidden">
+    <!-- Fondo de taller en escala de grises -->
+    <div 
+      class="absolute inset-0 bg-cover bg-center grayscale filter contrast-110 opacity-75"
+      style="background-image: url('/images/workshop-bg.jpg');"
+    ></div>
+    <!-- Overlay sutil para enfoque visual -->
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]"></div>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
-      <div class="bg-white py-8 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-100">
-        <slot />
-      </div>
+    <!-- Contenedor central -->
+    <div class="relative z-10 w-full flex justify-center py-6">
+      <slot />
     </div>
   </div>
 </template>
