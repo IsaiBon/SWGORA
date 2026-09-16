@@ -77,20 +77,20 @@ const getStatusBadge = (status: Order['status']) => {
           Bienvenido a SWGORA. Resumen de operaciones y estado general de la plataforma.
         </p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5 flex-wrap">
         <router-link
-          to="/ordenes"
-          class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition shadow-indigo-200"
+          to="/clientes"
+          class="inline-flex items-center justify-center px-4 py-2 text-xs sm:text-sm font-bold text-white bg-[#0D0D0D] hover:bg-black rounded-full shadow-md transition"
         >
-          <ShoppingCart class="w-4 h-4 mr-2" />
-          Ver Órdenes
+          <Users class="w-4 h-4 mr-1.5 text-[#05F2F2]" />
+          Ver Clientes
         </router-link>
         <router-link
-          to="/catalogo"
-          class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition"
+          to="/ordenes"
+          class="inline-flex items-center justify-center px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-full shadow-sm transition"
         >
-          <Package class="w-4 h-4 mr-2" />
-          Ver Catálogo
+          <ShoppingCart class="w-4 h-4 mr-1.5 text-slate-500" />
+          Órdenes
         </router-link>
       </div>
     </div>

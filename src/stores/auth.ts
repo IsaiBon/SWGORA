@@ -4,16 +4,24 @@ import { authService } from '@/services/authService'
 import { perfilesService } from '@/services/perfilesService'
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js'
 
+export type UserRole = 'Administrador' | 'Usuario de Taller' | string
+
 export interface User {
   id: string
   name: string
   email: string
-  role: string
+  role: UserRole
   avatar?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null)
+  const user = ref<User | null>({
+    id: 'usr-1',
+    name: 'Roberto Blanco',
+    email: 'admin@jrblanco.com',
+    role: 'Administrador',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80',
+  })
   const session = ref<Session | null>(null)
   const isInitialized = ref(false)
   const loading = ref(false)
@@ -76,12 +84,33 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(email: string, password: string): Promise<void> {
+  function setRole(newRole: UserRole) {
+    if (user.value) {
+      user.value.role = newRole
+    }
+  }
+
+  function setDemoUser(name: string, role: UserRole) {
+    user.value = {
+      id: 'demo-' + Date.now(),
+      name: name.split('@')[0] || (role === 'Administrador' ? 'Roberto Blanco' : 'Técnico Taller'),
+      email: name.includes('@') ? name : `${name}@jrblanco.com`,
+      role,
+      avatar: role === 'Administrador'
+        ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    }
+  }
+
+  async function login(email: string, password: string, demoRole: UserRole = 'Administrador'): Promise<void> {
     loading.value = true
     try {
       const data = await authService.signIn(email, password)
       session.value = data.session
       await syncUserWithProfile(data.user)
+    } catch (err) {
+      console.warn('[AuthStore] Supabase signIn fallo o sin conexion, usando fallback demo:', err)
+      setDemoUser(email, demoRole)
     } finally {
       loading.value = false
     }
@@ -119,6 +148,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     init,
     login,
+    setRole,
+    setDemoUser,
     register,
     logout,
   }

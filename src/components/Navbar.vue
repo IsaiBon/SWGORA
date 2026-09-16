@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { useUiStore } from '@/stores/ui'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, type UserRole } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import JrLogo from '@/components/JrLogo.vue'
+import RoleBadge from '@/components/RoleBadge.vue'
 import { 
   Menu, 
   Bell, 
   Search, 
   LogOut, 
   User as UserIcon,
-  Layers
+  RefreshCw,
 } from 'lucide-vue-next'
 
 const uiStore = useUiStore()
@@ -19,30 +21,37 @@ const handleLogout = () => {
   authStore.logout()
   router.push('/login')
 }
+
+const toggleRole = () => {
+  const currentRole = authStore.user?.role
+  const nextRole: UserRole = currentRole === 'Administrador' ? 'Usuario de Taller' : 'Administrador'
+  authStore.setRole(nextRole)
+}
 </script>
 
 <template>
   <header class="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 shadow-sm">
-    <!-- Left: Hamburger (Mobile) + Brand / Breadcrumb -->
+    <!-- Left: Hamburger (Mobile) + Brand -->
     <div class="flex items-center gap-3 sm:gap-4">
       <button
         type="button"
         @click="uiStore.toggleMobileSidebar"
-        class="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 lg:hidden focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 lg:hidden focus:outline-none focus:ring-2 focus:ring-[#05C7F2]"
         aria-label="Abrir menú de navegación"
       >
         <Menu class="w-6 h-6" />
       </button>
 
-      <div class="flex items-center gap-2">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
-          <Layers class="w-5 h-5" />
-        </div>
+      <div class="flex items-center gap-2.5">
+        <JrLogo :size="38" />
         <div class="hidden sm:block">
-          <span class="text-base font-bold tracking-tight text-slate-900">SWGORA</span>
-          <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-            Frontend v1.0
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-base font-extrabold tracking-tight text-slate-900">JR BLANCO</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#05C7F2]/15 text-[#04C4D9] border border-[#05C7F2]/30">
+              SWGORA v2.0
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium">Gestión de Taller y Servicios</p>
         </div>
       </div>
     </div>
@@ -55,30 +64,43 @@ const handleLogout = () => {
         </div>
         <input
           type="text"
-          placeholder="Buscar órdenes, productos, clientes..."
-          class="w-full pl-9 pr-4 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          placeholder="Buscar clientes, órdenes de taller, refacciones..."
+          class="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-full text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#05C7F2] focus:border-transparent transition shadow-inner"
         />
       </div>
     </div>
 
-    <!-- Right: Notifications & User Profile -->
-    <div class="flex items-center gap-3">
+    <!-- Right: Notifications, Quick Role Switcher & User Profile -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Quick Role Toggle Button for live testing -->
+      <button
+        v-if="authStore.isAuthenticated"
+        type="button"
+        @click="toggleRole"
+        class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition"
+        title="Haz clic para alternar de rol en vivo"
+      >
+        <RefreshCw class="w-3 h-3 text-[#04C4D9]" />
+        <span class="text-[11px]">Alternar Rol:</span>
+        <RoleBadge :role="authStore.user?.role || 'Administrador'" size="sm" />
+      </button>
+
       <!-- Notification Icon -->
       <button 
         type="button"
-        class="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+        class="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition"
         title="Notificaciones"
       >
         <Bell class="w-5 h-5" />
-        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
+        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-[#05C7F2] rounded-full ring-2 ring-white"></span>
       </button>
 
       <div class="h-6 w-px bg-slate-200"></div>
 
       <!-- User Profile / Auth Actions -->
-      <div v-if="authStore.isAuthenticated" class="flex items-center gap-3">
+      <div v-if="authStore.isAuthenticated" class="flex items-center gap-2.5">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-sm">
             <img 
               v-if="authStore.user?.avatar" 
               :src="authStore.user.avatar" 
@@ -87,12 +109,12 @@ const handleLogout = () => {
             />
             <UserIcon v-else class="w-4 h-4 text-slate-500" />
           </div>
-          <div class="hidden lg:block text-left">
-            <div class="text-xs font-semibold text-slate-800 leading-tight">
+          <div class="hidden lg:block text-left leading-tight">
+            <div class="text-xs font-bold text-slate-800">
               {{ authStore.user?.name }}
             </div>
-            <div class="text-[10px] text-slate-500">
-              {{ authStore.user?.role }}
+            <div class="mt-0.5">
+              <RoleBadge :role="authStore.user?.role || 'Administrador'" size="sm" :showIcon="false" />
             </div>
           </div>
         </div>
@@ -100,17 +122,17 @@ const handleLogout = () => {
         <button
           type="button"
           @click="handleLogout"
-          class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+          class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition"
           title="Cerrar sesión"
         >
-          <LogOut class="w-5 h-5" />
+          <LogOut class="w-4 h-4" />
         </button>
       </div>
 
       <router-link
         v-else
         to="/login"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition"
+        class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#0D0D0D] hover:bg-black rounded-full shadow-sm transition"
       >
         <UserIcon class="w-4 h-4" />
         <span>Iniciar Sesión</span>

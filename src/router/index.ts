@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
 import OrdenesView from '@/views/OrdenesView.vue'
 import CatalogoView from '@/views/CatalogoView.vue'
+import ClientesView from '@/views/ClientesView.vue'
 import LoginView from '@/views/LoginView.vue'
 
 const routes = [
@@ -13,19 +14,25 @@ const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     component: DashboardView,
-    meta: { layout: 'main', title: 'Dashboard - SWGORA' },
+    meta: { layout: 'main', title: 'Dashboard - JR Blanco' },
+  },
+  {
+    path: '/clientes',
+    name: 'Clientes',
+    component: ClientesView,
+    meta: { layout: 'main', title: 'Clientes y Flotillas - JR Blanco' },
   },
   {
     path: '/ordenes',
     name: 'Ordenes',
     component: OrdenesView,
-    meta: { layout: 'main', title: 'Órdenes - SWGORA' },
+    meta: { layout: 'main', title: 'Órdenes - JR Blanco' },
   },
   {
     path: '/catalogo',
     name: 'Catalogo',
     component: CatalogoView,
-    meta: { layout: 'main', title: 'Catálogo - SWGORA' },
+    meta: { layout: 'main', title: 'Catálogo - JR Blanco' },
   },
   {
     path: '/login',
