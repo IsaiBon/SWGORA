@@ -6,15 +6,18 @@ export interface Cliente {
   telefono?: string | null
   direccion?: string | null
   taller?: string | null
+  especificaciones_tecnicas?: Record<string, any>
   created_at: string
+  updated_at?: string
 }
 
-export type ClienteInsert = Omit<Cliente, 'id' | 'created_at'> & {
+export type ClienteInsert = Omit<Cliente, 'id' | 'created_at' | 'updated_at'> & {
   id?: string
   created_at?: string
+  updated_at?: string
 }
 
-export type ClienteUpdate = Partial<Omit<Cliente, 'id' | 'created_at'>>
+export type ClienteUpdate = Partial<Omit<Cliente, 'id' | 'created_at' | 'updated_at'>>
 
 export const clientesService = {
   async getClientes(): Promise<Cliente[]> {

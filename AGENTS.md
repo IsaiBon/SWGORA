@@ -72,9 +72,12 @@ SWGORA/
 - `telefono`: `TEXT` (nullable)
 - `direccion`: `TEXT` (nullable)
 - `taller`: `TEXT` (nullable)
+- `especificaciones_tecnicas`: `JSONB NOT NULL DEFAULT '{}'::jsonb` (atributos dinámicos técnicos y de maquinaria)
 - `created_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
+- `updated_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
 - **Seguridad**: RLS habilitado con política para roles `anon` y `authenticated`.
-- **Índices**: `idx_clientes_nombre`, `idx_clientes_taller`.
+- **Índices**: `idx_clientes_nombre`, `idx_clientes_taller`, y GIN `idx_clientes_especificaciones_tecnicas`.
+- **Triggers**: `set_clientes_updated_at` (`BEFORE UPDATE`).
 
 ### Tabla `public.perfiles`
 - `id`: `UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE`
@@ -85,7 +88,23 @@ SWGORA/
 - `created_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
 - `updated_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
 - **Seguridad**: RLS habilitado con políticas de lectura a usuarios autenticados e inserción/actualización de perfil propio.
-- **Trigger**: `on_auth_user_created` en `auth.users` que crea automáticamente el registro en `perfiles`.
+- **Trigger**: `on_auth_user_created` en `auth.users` y `set_perfiles_updated_at` (`BEFORE UPDATE`).
+
+### Tabla `public.productos`
+- `id`: `UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+- `codigo`: `TEXT UNIQUE NOT NULL`
+- `nombre`: `TEXT NOT NULL`
+- `categoria`: `TEXT NOT NULL`
+- `precio`: `NUMERIC(12, 2) NOT NULL DEFAULT 0.00`
+- `stock`: `INTEGER NOT NULL DEFAULT 0`
+- `estado`: `TEXT NOT NULL DEFAULT 'Disponible'`
+- `imagen_url`: `TEXT` (nullable)
+- `especificaciones_tecnicas`: `JSONB NOT NULL DEFAULT '{}'::jsonb` (atributos técnicos variables: material, presión, voltaje, etc.)
+- `created_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
+- `updated_at`: `TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`
+- **Seguridad**: RLS habilitado con políticas de lectura a `anon` y `authenticated`, y modificación a `authenticated`.
+- **Índices**: B-tree sobre `codigo`, `categoria`; y GIN `idx_productos_especificaciones_tecnicas` sobre `especificaciones_tecnicas`.
+- **Triggers**: `set_productos_updated_at` (`BEFORE UPDATE`) ejecutando `public.update_updated_at_column()`.
 
 ---
 
