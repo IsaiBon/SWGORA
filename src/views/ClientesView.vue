@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { clientService, type Client } from '@/services/clientService'
+import { clientesService, type Cliente, type ClientStatus } from '@/services/clientesService'
 import ClientCard from '@/components/ClientCard.vue'
 import ClientModal from '@/components/ClientModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -10,59 +10,72 @@ import {
   Users,
   Search,
   Plus,
-  Filter,
   RotateCcw,
-  Sparkles,
   CheckCircle,
-  FolderX,
+  Ban,
+  Wrench,
 } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const clients = ref<Client[]>(clientService.getClients())
+// State
+const clients = ref<Cliente[]>([])
+const loading = ref(true)
 const searchQuery = ref('')
 const selectedType = ref<string>('Todos')
+const selectedStatus = ref<string>('Todos')
 const isModalOpen = ref(false)
-const clientToEdit = ref<Client | null>(null)
+const clientToEdit = ref<Cliente | null>(null)
 const toastMessage = ref('')
 
-const loadClients = () => {
-  clients.value = clientService.getClients()
+const typeCategories = ['Todos', 'Cliente', 'Tallerista']
+const statusCategories = ['Todos', 'Activo', 'Inactivo']
+
+const loadClients = async () => {
+  loading.value = true
+  try {
+    clients.value = await clientesService.getClientes({
+      search: searchQuery.value,
+      tipo: selectedType.value,
+      estado: selectedStatus.value,
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!authStore.canAccess('/clientes')) {
     router.replace(authStore.defaultRoute)
     return
   }
-  loadClients()
+  await loadClients()
 })
-
-const categories = ['Todos', 'Flotilla', 'Empresa', 'Taller Asociado', 'Particular']
 
 const filteredClients = computed(() => {
   const query = searchQuery.value.toLowerCase().trim()
   return clients.value.filter((c) => {
     const matchesQuery =
       !query ||
-      c.name.toLowerCase().includes(query) ||
-      c.company.toLowerCase().includes(query) ||
-      c.phone.includes(query) ||
-      c.address.toLowerCase().includes(query) ||
-      c.equipmentDescription.toLowerCase().includes(query)
+      c.nombre.toLowerCase().includes(query) ||
+      c.cedula.toLowerCase().includes(query) ||
+      (c.telefono && c.telefono.includes(query)) ||
+      (c.direccion && c.direccion.toLowerCase().includes(query))
 
-    const matchesType = selectedType.value === 'Todos' || c.type === selectedType.value
+    const matchesType = selectedType.value === 'Todos' || c.tipo === selectedType.value
+    const matchesStatus = selectedStatus.value === 'Todos' || c.estado === selectedStatus.value
 
-    return matchesQuery && matchesType
+    return matchesQuery && matchesType && matchesStatus
   })
 })
 
 const stats = computed(() => {
   const total = clients.value.length
-  const enServicio = clients.value.filter((c) => c.status === 'En Servicio').length
-  const flotillas = clients.value.filter((c) => c.type === 'Flotilla').length
-  return { total, enServicio, flotillas }
+  const activos = clients.value.filter((c) => c.estado === 'Activo').length
+  const talleristas = clients.value.filter((c) => c.tipo === 'Tallerista').length
+  const inactivos = clients.value.filter((c) => c.estado === 'Inactivo').length
+  return { total, activos, talleristas, inactivos }
 })
 
 // Modal handlers
@@ -71,55 +84,67 @@ const openCreateModal = () => {
   isModalOpen.value = true
 }
 
-const openEditModal = (client: Client) => {
+const openEditModal = (client: Cliente) => {
   clientToEdit.value = client
   isModalOpen.value = true
 }
 
-const handleSaveClient = (clientData: Partial<Client>) => {
-  clientService.saveClient(clientData as any)
-  loadClients()
-  isModalOpen.value = false
-  showToast(clientData.id ? 'Cliente actualizado exitosamente' : 'Cliente registrado exitosamente')
-}
-
-const handleDeleteClient = (id: string) => {
-  clientService.deleteClient(id)
-  loadClients()
-  isModalOpen.value = false
-  showToast('Cliente eliminado del sistema')
-}
-
-// Empty State Demo helpers
-const handleClearAll = () => {
-  if (confirm('¿Deseas vaciar la lista para probar los Empty States amigables?')) {
-    clientService.clearAll()
-    loadClients()
-    showToast('Lista vaciada para demostración')
+const handleSaveClient = async (clientData: Partial<Cliente>) => {
+  try {
+    if (clientData.id) {
+      await clientesService.updateCliente(clientData.id, clientData)
+      showToast('Cliente actualizado correctamente')
+    } else {
+      await clientesService.createCliente(clientData as any)
+      showToast('Cliente registrado exitosamente en PostgreSQL')
+    }
+    await loadClients()
+    isModalOpen.value = false
+  } catch (err: any) {
+    showToast(err.message || 'Error al guardar cliente')
   }
 }
 
-const handleRestoreDemo = () => {
-  clientService.resetClients()
-  loadClients()
-  showToast('Clientes demo restaurados')
+// Borrado lógico (Inactivar / Reactivar)
+const handleToggleStatus = async (id: string, newStatus: ClientStatus) => {
+  try {
+    if (newStatus === 'Inactivo') {
+      await clientesService.deactivateCliente(id)
+      showToast('Cliente inactivado (Borrado Lógico preservado)')
+    } else {
+      await clientesService.reactivateCliente(id)
+      showToast('Cliente reactivado exitosamente')
+    }
+    await loadClients()
+    isModalOpen.value = false
+  } catch (err: any) {
+    showToast(err.message || 'Error al actualizar estado')
+  }
 }
 
+// Helpers para demo y filtros
 const clearFilters = () => {
   searchQuery.value = ''
   selectedType.value = 'Todos'
+  selectedStatus.value = 'Todos'
+}
+
+const handleRestoreDemo = async () => {
+  clientesService.resetDemo()
+  await loadClients()
+  showToast('Datos de demostración restaurados')
 }
 
 const showToast = (msg: string) => {
   toastMessage.value = msg
   setTimeout(() => {
     toastMessage.value = ''
-  }, 3000)
+  }, 3200)
 }
 </script>
 
 <template>
-  <div v-if="authStore.canAccess('/clientes')" class="space-y-6 pb-12">
+  <div class="space-y-6 pb-12">
     <!-- Toast Notification -->
     <div
       v-if="toastMessage"
@@ -134,36 +159,24 @@ const showToast = (msg: string) => {
       <div>
         <div class="flex items-center gap-2 mb-1">
           <span class="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-[#05C7F2]/15 text-[#04C4D9] border border-[#05C7F2]/30 uppercase tracking-wider">
-            Sprint 2 • JR Blanco
+            Sprint 3 • Supabase & PostgreSQL
           </span>
         </div>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          Gestión de Clientes y Flotillas
+          Gestión Integral de Clientes y Talleristas
         </h1>
         <p class="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-          Directorio centralizado con accesos directos táctiles a llamada telefónica, ubicación en mapa y seguimiento de servicios en taller.
+          CRUD persistente con cédula, diferenciación de talleristas, borrado lógico para historial de órdenes y filtros optimizados.
         </p>
       </div>
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-        <!-- Demo Empty State Toggle -->
         <button
-          v-if="clients.length > 0"
-          type="button"
-          @click="handleClearAll"
-          class="min-h-[44px] px-3.5 py-2 rounded-full border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition flex items-center gap-1.5"
-          title="Vacía la lista para evaluar el estado vacío amigable"
-        >
-          <FolderX class="w-4 h-4 text-slate-400" />
-          <span>Probar Empty State</span>
-        </button>
-
-        <button
-          v-else
           type="button"
           @click="handleRestoreDemo"
           class="min-h-[44px] px-3.5 py-2 rounded-full border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition flex items-center gap-1.5"
+          title="Restaurar registros estándar de prueba"
         >
           <RotateCcw class="w-4 h-4 text-[#04C4D9]" />
           <span>Restaurar Demo</span>
@@ -176,48 +189,62 @@ const showToast = (msg: string) => {
           class="min-h-[46px] px-6 py-2.5 rounded-full bg-[#0D0D0D] hover:bg-black text-white text-xs sm:text-sm font-bold shadow-md shadow-slate-300 hover:shadow-xl transition active:scale-95 flex items-center justify-center gap-2"
         >
           <Plus class="w-4 h-4 text-[#05F2F2]" />
-          <span>Nuevo Cliente</span>
+          <span>Nuevo Cliente / Tallerista</span>
         </button>
       </div>
     </div>
 
-    <!-- Quick Stats Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <!-- Quick Stats Cards (PostgreSQL Metrics) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <!-- Total -->
       <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Clientes</div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-0.5">{{ stats.total }}</div>
+          <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Registros</div>
+          <div class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">{{ stats.total }}</div>
         </div>
-        <div class="w-10 h-10 rounded-xl bg-[#05C7F2]/10 text-[#04C4D9] flex items-center justify-center">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
           <Users class="w-5 h-5" />
         </div>
       </div>
 
+      <!-- Activos -->
       <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">En Servicio en Taller</div>
-          <div class="text-2xl font-extrabold text-[#04C4D9] mt-0.5">{{ stats.enServicio }}</div>
+          <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600">Activos</div>
+          <div class="text-xl sm:text-2xl font-extrabold text-emerald-600 mt-0.5">{{ stats.activos }}</div>
         </div>
-        <div class="w-10 h-10 rounded-xl bg-sky-50 text-[#05C7F2] flex items-center justify-center">
-          <Sparkles class="w-5 h-5" />
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <CheckCircle class="w-5 h-5" />
         </div>
       </div>
 
+      <!-- Talleristas -->
       <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
         <div>
-          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Flotillas / Empresas</div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-0.5">{{ stats.flotillas }}</div>
+          <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-600">Talleristas</div>
+          <div class="text-xl sm:text-2xl font-extrabold text-amber-600 mt-0.5">{{ stats.talleristas }}</div>
         </div>
-        <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-          <Filter class="w-5 h-5" />
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <Wrench class="w-5 h-5" />
+        </div>
+      </div>
+
+      <!-- Inactivos (Borrado Lógico) -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Inactivos</div>
+          <div class="text-xl sm:text-2xl font-extrabold text-slate-500 mt-0.5">{{ stats.inactivos }}</div>
+        </div>
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center">
+          <Ban class="w-5 h-5" />
         </div>
       </div>
     </div>
 
-    <!-- Filters & Search Bar (Touch friendly) -->
-    <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
+    <!-- Filters & Search Bar (Conectados a Supabase y PostgreSQL) -->
+    <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
+      <!-- Search Input -->
       <div class="flex flex-col sm:flex-row gap-3">
-        <!-- Search Input -->
         <div class="relative flex-1">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
             <Search class="w-5 h-5" />
@@ -225,36 +252,63 @@ const showToast = (msg: string) => {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar por nombre, empresa, teléfono, dirección o equipo..."
+            placeholder="Buscar por nombre, cédula / documento, teléfono o dirección..."
             class="w-full min-h-[46px] pl-11 pr-4 rounded-full bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#05C7F2] transition shadow-inner"
           />
         </div>
 
-        <!-- Filter Count -->
         <div class="flex items-center gap-2 text-xs text-slate-500 font-medium px-2">
           <span>Mostrando <strong>{{ filteredClients.length }}</strong> de {{ clients.length }}</span>
         </div>
       </div>
 
-      <!-- Category Filter Chips (Touch Friendly) -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
-        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1 mr-1 hidden sm:inline">
-          Filtro:
-        </span>
-        <button
-          v-for="cat in categories"
-          :key="cat"
-          type="button"
-          @click="selectedType = cat"
-          :class="[
-            'min-h-[40px] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition border active:scale-95',
-            selectedType === cat
-              ? 'bg-[#0D0D0D] text-white border-[#0D0D0D] shadow-sm'
-              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100',
-          ]"
-        >
-          {{ cat }}
-        </button>
+      <!-- Filter Controls: Tipo y Estado -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
+        <!-- Filtro por Tipo -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 whitespace-nowrap">
+            Tipo:
+          </span>
+          <button
+            v-for="t in typeCategories"
+            :key="t"
+            type="button"
+            @click="selectedType = t"
+            :class="[
+              'min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition border active:scale-95',
+              selectedType === t
+                ? 'bg-[#0D0D0D] text-white border-[#0D0D0D] shadow-sm'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100',
+            ]"
+          >
+            {{ t }}
+          </button>
+        </div>
+
+        <!-- Filtro por Estado (Borrado Lógico) -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 whitespace-nowrap">
+            Estado:
+          </span>
+          <button
+            v-for="s in statusCategories"
+            :key="s"
+            type="button"
+            @click="selectedStatus = s"
+            :class="[
+              'min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition border active:scale-95',
+              selectedStatus === s
+                ? s === 'Activo'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : s === 'Inactivo'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-[#0D0D0D] text-white border-[#0D0D0D] shadow-sm'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100',
+            ]"
+          >
+            {{ s }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -265,14 +319,15 @@ const showToast = (msg: string) => {
         :key="client.id"
         :client="client"
         @edit="openEditModal"
+        @toggleStatus="handleToggleStatus"
       />
     </div>
 
-    <!-- Empty State: When search has 0 results -->
+    <!-- Empty State: When search/filter returns 0 results -->
     <div v-else-if="clients.length > 0">
       <EmptyState
         title="Sin coincidencias encontradas"
-        :description="`No encontramos ningún cliente que coincida con '${searchQuery || selectedType}'. Prueba modificando tu búsqueda o restableciendo los filtros.`"
+        :description="`No se encontraron clientes con el término '${searchQuery}' o los filtros seleccionados (Tipo: ${selectedType}, Estado: ${selectedStatus}).`"
         actionText="Limpiar Filtros"
         @action="clearFilters"
       />
@@ -281,8 +336,8 @@ const showToast = (msg: string) => {
     <!-- Empty State: When no clients exist at all -->
     <div v-else>
       <EmptyState
-        title="No hay clientes registrados aún"
-        description="El directorio de clientes se encuentra vacío. Comienza registrando tu primer cliente de taller o restaura los datos de demostración para explorar la interfaz."
+        title="No hay clientes registrados en la base de datos"
+        description="Aún no se han registrado clientes o talleristas en la tabla 'clientes' de PostgreSQL. Comienza registrando el primero o restaura los datos de demostración."
         actionText="Registrar Primer Cliente"
         secondaryActionText="Restaurar Clientes Demo"
         @action="openCreateModal"
@@ -296,7 +351,7 @@ const showToast = (msg: string) => {
       :clientToEdit="clientToEdit"
       @close="isModalOpen = false"
       @save="handleSaveClient"
-      @delete="handleDeleteClient"
+      @toggleStatus="handleToggleStatus"
     />
   </div>
 </template>
