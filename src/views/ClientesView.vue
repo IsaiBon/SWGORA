@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { clientService, type Client } from '@/services/clientService'
 import ClientCard from '@/components/ClientCard.vue'
 import ClientModal from '@/components/ClientModal.vue'
@@ -15,6 +17,9 @@ import {
   FolderX,
 } from 'lucide-vue-next'
 
+const router = useRouter()
+const authStore = useAuthStore()
+
 const clients = ref<Client[]>(clientService.getClients())
 const searchQuery = ref('')
 const selectedType = ref<string>('Todos')
@@ -27,6 +32,10 @@ const loadClients = () => {
 }
 
 onMounted(() => {
+  if (!authStore.canAccess('/clientes')) {
+    router.replace(authStore.defaultRoute)
+    return
+  }
   loadClients()
 })
 
@@ -110,7 +119,7 @@ const showToast = (msg: string) => {
 </script>
 
 <template>
-  <div class="space-y-6 pb-12">
+  <div v-if="authStore.canAccess('/clientes')" class="space-y-6 pb-12">
     <!-- Toast Notification -->
     <div
       v-if="toastMessage"

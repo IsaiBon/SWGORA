@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useUiStore } from '@/stores/ui'
-import { useAuthStore, type UserRole } from '@/stores/auth'
+import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import JrLogo from '@/components/JrLogo.vue'
 import RoleBadge from '@/components/RoleBadge.vue'
@@ -10,7 +10,6 @@ import {
   Search, 
   LogOut, 
   User as UserIcon,
-  RefreshCw,
 } from 'lucide-vue-next'
 
 const uiStore = useUiStore()
@@ -20,12 +19,6 @@ const router = useRouter()
 const handleLogout = () => {
   authStore.logout()
   router.push('/login')
-}
-
-const toggleRole = () => {
-  const currentRole = authStore.user?.role
-  const nextRole: UserRole = currentRole === 'Administrador' ? 'Usuario de Taller' : 'Administrador'
-  authStore.setRole(nextRole)
 }
 </script>
 
@@ -70,21 +63,8 @@ const toggleRole = () => {
       </div>
     </div>
 
-    <!-- Right: Notifications, Quick Role Switcher & User Profile -->
+    <!-- Right: Notifications & User Profile -->
     <div class="flex items-center gap-2 sm:gap-3">
-      <!-- Quick Role Toggle Button for live testing -->
-      <button
-        v-if="authStore.isAuthenticated"
-        type="button"
-        @click="toggleRole"
-        class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition"
-        title="Haz clic para alternar de rol en vivo"
-      >
-        <RefreshCw class="w-3 h-3 text-[#04C4D9]" />
-        <span class="text-[11px]">Alternar Rol:</span>
-        <RoleBadge :role="authStore.user?.role || 'Administrador'" size="sm" />
-      </button>
-
       <!-- Notification Icon -->
       <button 
         type="button"

@@ -1,7 +1,7 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from 'vue'
-import { ShieldCheck, Wrench } from 'lucide-vue-next'
-import type { UserRole } from '@/stores/auth'
+import { ShieldCheck, Wrench, Eye } from 'lucide-vue-next'
+import { normalizeRole, type UserRole } from '@/stores/auth'
 
 const props = withDefaults(
   defineProps<{
@@ -15,7 +15,7 @@ const props = withDefaults(
   }
 )
 
-const isAdmin = computed(() => props.role === 'Administrador')
+const normalized = computed(() => normalizeRole(props.role))
 
 const sizeClasses = computed(() => {
   switch (props.size) {
@@ -40,6 +40,45 @@ const iconSize = computed(() => {
       return 'w-3.5 h-3.5'
   }
 })
+
+const badgeClasses = computed(() => {
+  switch (normalized.value) {
+    case 'Administrador':
+      return 'bg-[#05C7F2]/15 text-sky-900 border-[#05C7F2]/50'
+    case 'Operador':
+      return 'bg-amber-50 text-amber-900 border-amber-300'
+    case 'Consultor':
+      return 'bg-indigo-50 text-indigo-900 border-indigo-200'
+    default:
+      return 'bg-slate-50 text-slate-800 border-slate-300'
+  }
+})
+
+const iconComponent = computed(() => {
+  switch (normalized.value) {
+    case 'Administrador':
+      return ShieldCheck
+    case 'Operador':
+      return Wrench
+    case 'Consultor':
+      return Eye
+    default:
+      return ShieldCheck
+  }
+})
+
+const iconColorClass = computed(() => {
+  switch (normalized.value) {
+    case 'Administrador':
+      return 'text-[#04C4D9]'
+    case 'Operador':
+      return 'text-amber-600'
+    case 'Consultor':
+      return 'text-indigo-600'
+    default:
+      return 'text-slate-500'
+  }
+})
 </script>
 
 <template>
@@ -47,16 +86,14 @@ const iconSize = computed(() => {
     :class="[
       'inline-flex items-center font-medium rounded-full border transition-colors select-none shadow-sm',
       sizeClasses,
-      isAdmin
-        ? 'bg-[#05C7F2]/15 text-sky-900 border-[#05C7F2]/50'
-        : 'bg-amber-50 text-amber-900 border-amber-300',
+      badgeClasses,
     ]"
   >
     <component
       v-if="showIcon"
-      :is="isAdmin ? ShieldCheck : Wrench"
-      :class="[iconSize, isAdmin ? 'text-[#04C4D9]' : 'text-amber-600']"
+      :is="iconComponent"
+      :class="[iconSize, iconColorClass]"
     />
-    <span>{{ role }}</span>
+    <span>{{ normalized }}</span>
   </span>
 </template>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { ordersService, type Order } from '@/services/ordersService'
 import { 
   Search, 
@@ -10,11 +12,18 @@ import {
   FileText 
 } from 'lucide-vue-next'
 
+const router = useRouter()
+const authStore = useAuthStore()
+
 const orders = ref<Order[]>([])
 const searchQuery = ref('')
 const selectedStatus = ref<string>('Todos')
 
 onMounted(async () => {
+  if (!authStore.canAccess('/ordenes')) {
+    router.replace(authStore.defaultRoute)
+    return
+  }
   orders.value = await ordersService.getOrders()
 })
 
@@ -48,7 +57,7 @@ const getStatusBadge = (status: Order['status']) => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div v-if="authStore.canAccess('/ordenes')" class="space-y-6">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>

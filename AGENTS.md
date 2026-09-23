@@ -108,7 +108,30 @@ SWGORA/
 
 ---
 
-## 5. Convenciones y Reglas de Desarrollo
+## 5. Roles del Sistema y Matriz de Permisos (RBAC)
+
+El sistema SWGORA implementa control de acceso basado en roles tanto en el enrutamiento frontend (`vue-router` guards) como en el menú lateral de navegación (`Sidebar.vue`) y en la sesión reactiva de Pinia (`useAuthStore`):
+
+| Rol | Vistas Permitidas | Restricciones / Comportamiento |
+| :--- | :--- | :--- |
+| **`Administrador`** | **Todas las vistas**: Dashboard (`/dashboard`), Clientes (`/clientes`), Órdenes (`/ordenes`), Catálogo (`/catalogo`). | Acceso total al sistema, supervisión operativa y administrativa. |
+| **`Operador`** | **Solo Órdenes y Catálogo**: Órdenes (`/ordenes`), Catálogo (`/catalogo`). | No tiene acceso a Dashboard ni a Clientes. Si intenta acceder a una ruta restringida, el Router Guard lo redirige automáticamente a `/ordenes`. El menú lateral filtra y oculta los módulos no autorizados. |
+| **`Consultor`** | **Solo Catálogo**: Catálogo (`/catalogo`). | Acceso restringido exclusivamente a la consulta del catálogo de productos y refacciones. Si intenta acceder a otra ruta, el Router Guard lo redirige automáticamente a `/catalogo`. El menú lateral solo muestra el Catálogo. |
+
+### Reglas de Implementación en Frontend:
+- **Guards de Navegación**: Configurados en `src/router/index.ts` mediante `router.beforeEach`, validando mediante `isRouteAllowedForRole()`.
+- **Rutas de Aterrizaje por Defecto**:
+  - `Administrador`: `/dashboard`
+  - `Operador`: `/ordenes`
+  - `Consultor`: `/catalogo`
+- **Componentes de Roles**:
+  - `src/components/RoleBadge.vue`: Insignia visual con iconos (`ShieldCheck` para Admin, `Wrench` para Operador, `Eye` para Consultor) y estilos dedicados.
+  - `src/components/Navbar.vue`: Botón interactivo para alternar rol en vivo (`toggleRole`) y probar permisos inmediatamente.
+  - `src/views/LoginView.vue`: Botones de demostración rápida para iniciar sesión como `Administrador`, `Operador` o `Consultor`.
+
+---
+
+## 6. Convenciones y Reglas de Desarrollo
 
 1. **Gestión de Git / GitHub**:
    - **Regla mandatoria**: Cada vez que se completen cambios o nuevas funcionalidades, realizar **commit** descriptivo y **push a GitHub** (`git push origin main`).

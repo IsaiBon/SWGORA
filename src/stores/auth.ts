@@ -4,7 +4,7 @@ import { authService } from '@/services/authService'
 import { perfilesService } from '@/services/perfilesService'
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js'
 
-export type UserRole = 'Administrador' | 'Usuario de Taller' | string
+export type UserRole = 'Administrador' | 'Operador' | 'Consultor' | string
 
 export interface User {
   id: string
@@ -14,19 +14,106 @@ export interface User {
   avatar?: string
 }
 
-export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>({
+const STORAGE_KEY = 'swgora_active_user'
+
+/**
+ * Normaliza cualquier string de rol a los 3 roles oficiales del sistema
+ */
+export function normalizeRole(role?: string | null): 'Administrador' | 'Operador' | 'Consultor' {
+  if (!role) return 'Consultor'
+  const lower = role.toLowerCase().trim()
+  if (lower.includes('admin')) return 'Administrador'
+  if (lower.includes('consult')) return 'Consultor'
+  if (lower.includes('oper') || lower.includes('taller') || lower.includes('tecnic')) return 'Operador'
+  return 'Consultor'
+}
+
+/**
+ * Retorna la ruta principal por defecto según el rol del usuario
+ */
+export function getDefaultRouteForRole(role: string): string {
+  const norm = normalizeRole(role)
+  switch (norm) {
+    case 'Administrador':
+      return '/dashboard'
+    case 'Operador':
+      return '/ordenes'
+    case 'Consultor':
+      return '/catalogo'
+    default:
+      return '/catalogo'
+  }
+}
+
+/**
+ * Determina si una ruta es accesible por un rol determinado
+ * - Administrador: Acceso completo a todo el sistema
+ * - Operador: Solo puede ver Órdenes y Catálogo (además de login)
+ * - Consultor: Solo puede ver Catálogo (además de login). NUNCA Órdenes ni Clientes ni Dashboard.
+ */
+export function isRouteAllowedForRole(path: string, role: string): boolean {
+  const norm = normalizeRole(role)
+  if (norm === 'Administrador') return true
+  if (norm === 'Operador') {
+    return path.startsWith('/ordenes') || path.startsWith('/catalogo') || path.startsWith('/login')
+  }
+  if (norm === 'Consultor') {
+    return path.startsWith('/catalogo') || path.startsWith('/login')
+  }
+  return false
+}
+
+function loadInitialUser(): User | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed && parsed.role) {
+        parsed.role = normalizeRole(parsed.role)
+        return parsed
+      }
+    }
+  } catch (e) {
+    console.warn('[AuthStore] Error cargando usuario guardado:', e)
+  }
+
+  // Usuario predeterminado si no hay sesión previa
+  return {
     id: 'usr-1',
     name: 'Roberto Blanco',
     email: 'admin@jrblanco.com',
     role: 'Administrador',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80',
-  })
+  }
+}
+
+function persistUser(u: User | null) {
+  try {
+    if (u) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
+    } else {
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  } catch (e) {
+    console.warn('[AuthStore] Error guardando usuario:', e)
+  }
+}
+
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref<User | null>(loadInitialUser())
   const session = ref<Session | null>(null)
   const isInitialized = ref(false)
   const loading = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null)
+
+  const defaultRoute = computed(() => {
+    return getDefaultRouteForRole(user.value?.role || 'Consultor')
+  })
+
+  function canAccess(path: string): boolean {
+    return isRouteAllowedForRole(path, user.value?.role || 'Consultor')
+  }
 
   function mapSupabaseUser(sbUser: SupabaseUser | null): User | null {
     if (!sbUser) return null
@@ -34,7 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
       id: sbUser.id,
       name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Usuario',
       email: sbUser.email || '',
-      role: sbUser.user_metadata?.role || 'Operador',
+      role: normalizeRole(sbUser.user_metadata?.role || 'Consultor'),
       avatar: sbUser.user_metadata?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80',
     }
   }
@@ -42,26 +129,31 @@ export const useAuthStore = defineStore('auth', () => {
   async function syncUserWithProfile(sbUser: SupabaseUser | null) {
     if (!sbUser) {
       user.value = null
+      persistUser(null)
       return
     }
 
     try {
       const perfil = await perfilesService.getPerfilById(sbUser.id)
       if (perfil) {
-        user.value = {
+        const u: User = {
           id: perfil.id,
           name: perfil.nombre,
           email: perfil.email,
-          role: perfil.rol,
+          role: normalizeRole(perfil.rol),
           avatar: perfil.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80',
         }
+        user.value = u
+        persistUser(u)
         return
       }
     } catch {
-      // Si la tabla perfiles aún no está migrada en la instancia remota, usar fallback de auth.users
+      // Fallback
     }
 
-    user.value = mapSupabaseUser(sbUser)
+    const u = mapSupabaseUser(sbUser)
+    user.value = u
+    persistUser(u)
   }
 
   async function init() {
@@ -70,11 +162,15 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const currentSession = await authService.getSession()
       session.value = currentSession
-      await syncUserWithProfile(currentSession?.user || null)
+      if (currentSession?.user) {
+        await syncUserWithProfile(currentSession.user)
+      }
 
       authService.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
-        await syncUserWithProfile(newSession?.user || null)
+        if (newSession?.user) {
+          await syncUserWithProfile(newSession.user)
+        }
       })
     } catch (err) {
       console.error('[AuthStore] Error inicializando sesión:', err)
@@ -86,31 +182,61 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setRole(newRole: UserRole) {
     if (user.value) {
-      user.value.role = newRole
+      const updatedUser: User = {
+        ...user.value,
+        role: normalizeRole(newRole),
+      }
+      user.value = updatedUser
+      persistUser(updatedUser)
     }
   }
 
   function setDemoUser(name: string, role: UserRole) {
-    user.value = {
+    const normRole = normalizeRole(role)
+    const defaultName = normRole === 'Administrador'
+      ? 'Roberto Blanco'
+      : (normRole === 'Operador' ? 'Carlos Operador' : 'Elena Consultora')
+
+    const defaultAvatar = normRole === 'Administrador'
+      ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80'
+      : (normRole === 'Operador'
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80')
+
+    const newUser: User = {
       id: 'demo-' + Date.now(),
-      name: name.split('@')[0] || (role === 'Administrador' ? 'Roberto Blanco' : 'Técnico Taller'),
+      name: name.split('@')[0] || defaultName,
       email: name.includes('@') ? name : `${name}@jrblanco.com`,
-      role,
-      avatar: role === 'Administrador'
-        ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      role: normRole,
+      avatar: defaultAvatar,
     }
+
+    user.value = newUser
+    persistUser(newUser)
   }
 
-  async function login(email: string, password: string, demoRole: UserRole = 'Administrador'): Promise<void> {
+  async function login(email: string, password: string, explicitRole?: UserRole): Promise<void> {
     loading.value = true
     try {
       const data = await authService.signIn(email, password)
       session.value = data.session
       await syncUserWithProfile(data.user)
     } catch (err) {
-      console.warn('[AuthStore] Supabase signIn fallo o sin conexion, usando fallback demo:', err)
-      setDemoUser(email, demoRole)
+      console.warn('[AuthStore] Supabase signIn falló o se ingresó cuenta demo local:', err)
+      
+      // Deducción 100% dinámica del rol a partir del usuario/correo
+      let dynamicRole: UserRole = explicitRole || 'Operador'
+      const lower = email.toLowerCase().trim()
+
+      if (lower.includes('admin')) {
+        dynamicRole = 'Administrador'
+      } else if (lower.includes('consult')) {
+        dynamicRole = 'Consultor'
+      } else if (lower.includes('oper') || lower.includes('taller') || lower.includes('tecnic')) {
+        dynamicRole = 'Operador'
+      }
+
+      setDemoUser(email, dynamicRole)
     } finally {
       loading.value = false
     }
@@ -136,6 +262,7 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       session.value = null
       user.value = null
+      persistUser(null)
       loading.value = false
     }
   }
@@ -146,6 +273,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isInitialized,
     loading,
+    defaultRoute,
+    canAccess,
     init,
     login,
     setRole,

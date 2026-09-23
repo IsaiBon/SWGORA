@@ -4,35 +4,56 @@ import OrdenesView from '@/views/OrdenesView.vue'
 import CatalogoView from '@/views/CatalogoView.vue'
 import ClientesView from '@/views/ClientesView.vue'
 import LoginView from '@/views/LoginView.vue'
+import { useAuthStore, isRouteAllowedForRole, getDefaultRouteForRole } from '@/stores/auth'
 
 const routes = [
   {
     path: '/',
-    redirect: '/dashboard',
+    name: 'Root',
+    redirect: () => {
+      const authStore = useAuthStore()
+      return getDefaultRouteForRole(authStore.user?.role || 'Consultor')
+    },
   },
   {
     path: '/dashboard',
     name: 'Dashboard',
     component: DashboardView,
-    meta: { layout: 'main', title: 'Dashboard - JR Blanco' },
+    meta: { 
+      layout: 'main', 
+      title: 'Dashboard - JR Blanco',
+      allowedRoles: ['Administrador']
+    },
   },
   {
     path: '/clientes',
     name: 'Clientes',
     component: ClientesView,
-    meta: { layout: 'main', title: 'Clientes y Flotillas - JR Blanco' },
+    meta: { 
+      layout: 'main', 
+      title: 'Clientes y Flotillas - JR Blanco',
+      allowedRoles: ['Administrador']
+    },
   },
   {
     path: '/ordenes',
     name: 'Ordenes',
     component: OrdenesView,
-    meta: { layout: 'main', title: 'Órdenes - JR Blanco' },
+    meta: { 
+      layout: 'main', 
+      title: 'Órdenes - JR Blanco',
+      allowedRoles: ['Administrador', 'Operador']
+    },
   },
   {
     path: '/catalogo',
     name: 'Catalogo',
     component: CatalogoView,
-    meta: { layout: 'main', title: 'Catálogo - JR Blanco' },
+    meta: { 
+      layout: 'main', 
+      title: 'Catálogo - JR Blanco',
+      allowedRoles: ['Administrador', 'Operador', 'Consultor']
+    },
   },
   {
     path: '/login',
@@ -42,7 +63,10 @@ const routes = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/dashboard',
+    redirect: () => {
+      const authStore = useAuthStore()
+      return getDefaultRouteForRole(authStore.user?.role || 'Consultor')
+    },
   },
 ]
 
@@ -51,11 +75,39 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+/**
+ * Guardián de navegación global:
+ * Valida de forma estricta los permisos de cada rol antes de permitir la carga de cualquier vista.
+ * - Administrador: Acceso total
+ * - Operador: Solo Órdenes y Catálogo
+ * - Consultor: Solo Catálogo
+ */
+router.beforeEach((to, _from) => {
   if (to.meta?.title) {
     document.title = to.meta.title as string
   }
-  next()
+
+  // Permitir siempre la vista de login
+  if (to.path === '/login') {
+    return true
+  }
+
+  const authStore = useAuthStore()
+  const userRole = authStore.user?.role || 'Consultor'
+
+  // Si la ruta solicitada no está permitida para el rol activo
+  if (!isRouteAllowedForRole(to.path, userRole)) {
+    const targetRoute = getDefaultRouteForRole(userRole)
+    console.warn(
+      `[Guardián de Rutas] Acceso restringido a '${to.path}' para el rol '${userRole}'. Redirigiendo a '${targetRoute}'.`
+    )
+    if (to.path !== targetRoute) {
+      return targetRoute
+    }
+    return '/catalogo'
+  }
+
+  return true
 })
 
 export default router

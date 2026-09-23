@@ -1,4 +1,5 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { computed } from 'vue'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useRoute } from 'vue-router'
@@ -33,6 +34,10 @@ const navItems: NavItem[] = [
   { name: 'Catálogo', path: '/catalogo', icon: Package },
   { name: 'Login / Acceso', path: '/login', icon: LogIn },
 ]
+
+const visibleNavItems = computed(() => {
+  return navItems.filter((item) => authStore.canAccess(item.path))
+})
 
 const isActive = (path: string) => {
   return route.path === path
@@ -87,7 +92,7 @@ const isActive = (path: string) => {
         </div>
 
         <router-link
-          v-for="item in navItems"
+          v-for="item in visibleNavItems"
           :key="item.path"
           :to="item.path"
           @click="uiStore.closeMobileSidebar"

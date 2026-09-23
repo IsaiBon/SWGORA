@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore, type UserRole } from '@/stores/auth'
+import { useAuthStore } from '@/stores/auth'
 import JrLogo from '@/components/JrLogo.vue'
 import {
-  ShieldCheck,
-  Wrench,
   KeyRound,
   X,
   CheckCircle2,
@@ -17,9 +15,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 // State
-const username = ref('admin@jrblanco.com')
-const password = ref('password123')
-const selectedRole = ref<UserRole>('Administrador')
+const username = ref('')
+const password = ref('')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
@@ -29,7 +26,7 @@ const recoveryInput = ref('')
 const isRecoverySubmitting = ref(false)
 const recoverySent = ref(false)
 
-const handleLogin = () => {
+const handleLogin = async () => {
   errorMessage.value = ''
   if (!username.value.trim()) {
     errorMessage.value = 'Por favor ingresa tu usuario o correo.'
@@ -41,21 +38,13 @@ const handleLogin = () => {
   }
 
   isSubmitting.value = true
-  setTimeout(() => {
-    authStore.login(username.value, password.value, selectedRole.value)
+  try {
+    await authStore.login(username.value, password.value)
+    router.push(authStore.defaultRoute)
+  } catch (err: any) {
+    errorMessage.value = err?.message || 'Error al procesar el ingreso.'
+  } finally {
     isSubmitting.value = false
-    router.push('/dashboard')
-  }, 450)
-}
-
-const setDemoRole = (role: UserRole) => {
-  selectedRole.value = role
-  if (role === 'Administrador') {
-    username.value = 'admin@jrblanco.com'
-    password.value = 'password123'
-  } else {
-    username.value = 'taller@jrblanco.com'
-    password.value = 'password123'
   }
 }
 
@@ -82,38 +71,10 @@ const closeRecoveryModal = () => {
       class="bg-[#F2F2F2] rounded-[2.5rem] shadow-2xl p-7 sm:p-9 border border-white/80 transition-all duration-300"
     >
       <!-- Logo JR Blanco -->
-      <div class="flex justify-center mb-6">
+      <div class="flex flex-col items-center justify-center mb-6">
         <JrLogo :size="105" />
-      </div>
-
-      <!-- Selector de Rol para Demo/Pruebas -->
-      <div class="mb-5 bg-white/70 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-1">
-        <button
-          type="button"
-          @click="setDemoRole('Administrador')"
-          :class="[
-            'flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all',
-            selectedRole === 'Administrador'
-              ? 'bg-[#0D0D0D] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900',
-          ]"
-        >
-          <ShieldCheck class="w-3.5 h-3.5 text-[#05C7F2]" />
-          <span>Admin</span>
-        </button>
-        <button
-          type="button"
-          @click="setDemoRole('Usuario de Taller')"
-          :class="[
-            'flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all',
-            selectedRole === 'Usuario de Taller'
-              ? 'bg-[#0D0D0D] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900',
-          ]"
-        >
-          <Wrench class="w-3.5 h-3.5 text-amber-400" />
-          <span>Taller</span>
-        </button>
+        <h2 class="text-base font-bold text-slate-900 tracking-tight mt-3">Iniciar Sesión</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Accede con tus credenciales asignadas</p>
       </div>
 
       <!-- Mensaje de Error -->

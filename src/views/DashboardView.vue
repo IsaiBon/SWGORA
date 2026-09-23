@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { 
   TrendingUp, 
   ShoppingCart, 
@@ -9,6 +11,9 @@ import {
   CheckCircle2
 } from 'lucide-vue-next'
 import { ordersService, type Order } from '@/services/ordersService'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 const recentOrders = ref<Order[]>([])
 
@@ -48,6 +53,10 @@ const stats = [
 ]
 
 onMounted(async () => {
+  if (!authStore.canAccess('/dashboard')) {
+    router.replace(authStore.defaultRoute)
+    return
+  }
   recentOrders.value = await ordersService.getOrders()
 })
 
@@ -68,7 +77,7 @@ const getStatusBadge = (status: Order['status']) => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div v-if="authStore.canAccess('/dashboard')" class="space-y-6">
     <!-- Header de Vista -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
