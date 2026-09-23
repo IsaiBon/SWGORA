@@ -32,3 +32,6 @@ trello.json
 
 # AI Assistant local configs
 GEMINI.md
+
+# Supabase CLI temp files
+supabase/.temp/
