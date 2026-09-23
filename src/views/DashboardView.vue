@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ordersService, type Order } from '@/services/ordersService'
-import { clientService, type Client } from '@/services/clientService'
+import { clientesService, type Cliente } from '@/services/clientesService'
 import { 
   Users, 
   Package, 
@@ -24,7 +24,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const orders = ref<Order[]>([])
-const clients = ref<Client[]>([])
+const clients = ref<Cliente[]>([])
 const selectedFilter = ref<'Todos' | 'En Proceso' | 'Pendiente' | 'Completada'>('Todos')
 const loading = ref(true)
 
@@ -37,7 +37,7 @@ onMounted(async () => {
   try {
     const [fetchedOrders, fetchedClients] = await Promise.all([
       ordersService.getOrders(),
-      Promise.resolve(clientService.getClients())
+      clientesService.getClientes()
     ])
     orders.value = fetchedOrders
     clients.value = fetchedClients
@@ -56,7 +56,7 @@ const completedOrdersCount = computed(() => {
 })
 
 const totalClientsCount = computed(() => clients.value.length)
-const activeClientsCount = computed(() => clients.value.filter(c => c.status === 'Activo' || c.status === 'En Servicio').length)
+const activeClientsCount = computed(() => clients.value.filter((c: Cliente) => c.estado === 'Activo').length)
 
 const monthlyRevenue = computed(() => {
   return orders.value
