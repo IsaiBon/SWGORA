@@ -8,6 +8,7 @@ Este documento proporciona el contexto arquitectónico, funcional, técnico y op
 - **Nombre**: SWGORA
 - **Repositorio**: [https://github.com/IsaiBon/SWGORA](https://github.com/IsaiBon/SWGORA)
 - **Rama principal**: `main`
+- **Despliegue Producción (Vercel)**: [https://swgora.vercel.app](https://swgora.vercel.app)
 - **Giro de Negocio**: Sistema web de gestión operativa y técnica para una **empresa rectificadora de motores automotrices**.
 - **Objetivo Principal**:
   1. Centralizar y digitalizar catálogos de repuestos multimarca (Dokuro, Rik, NPR, Pioneer, NDC, etc.), permitiendo búsquedas por vehículo/motor y **búsquedas dimensionales avanzadas para adaptaciones** cuando no se cuenta con código legible de motor.
